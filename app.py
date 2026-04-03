@@ -11,6 +11,9 @@ try:
 except ImportError:
     pass  # dotenv not installed, continue normally
 
+# Use /tmp for ChromaDB to avoid read-only database errors on Streamlit Cloud
+os.environ["CHROMA_DB_PATH"] = "/tmp/chroma_db"
+
 from ingestion import ingest_file, infer_source_type, extract_dates_from_text
 from storage import get_chroma_client, store_document
 from retrieval import retrieve_relevant_chunks, retrieve_all_chunks
