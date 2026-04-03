@@ -1,0 +1,8 @@
+streamlit
+chromadb
+groq
+pypdf2
+openpyxl
+markdown
+datetime
+llmlingua
