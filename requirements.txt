@@ -7,3 +7,4 @@ markdown
 datetime
 llmlingua
 liteparse
+protobuf==3.20.3
