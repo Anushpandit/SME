@@ -120,19 +120,25 @@ def query_chunks(
         include          = ["documents","metadatas","embeddings","distances"],
     )
     chunks  = []
-    embeds  = (res.get("embeddings") or [[]])[0] or []
-    for cid, doc, meta, dist in zip(
+    embeds  = res.get("embeddings")
+    if embeds and len(embeds) > 0:
+        embeds = embeds[0]  # Get embeddings for the first (only) query
+    else:
+        embeds = []
+
+    for i, (cid, doc, meta, dist) in enumerate(zip(
         res.get("ids",        [[]])[0],
         res.get("documents",  [[]])[0],
         res.get("metadatas",  [[]])[0],
         res.get("distances",  [[]])[0],
-    ):
+    )):
+        embedding = embeds[i] if i < len(embeds) else []
         chunks.append({
             "chunk_id":   cid,
             "content":    doc,
             "metadata":   meta,
             "similarity": round(1 - dist, 4) if dist is not None else 0.0,
-            "_embedding": embeds[len(chunks)] if len(chunks) < len(embeds) else [],
+            "_embedding": embedding,
         })
     return chunks
 
