@@ -39,15 +39,19 @@ st.title("Local RAG Application for SMEs")
 
 # API Key Configuration
 st.sidebar.header("🔑 API Configuration")
-api_key_input = st.sidebar.text_input("Enter Groq API Key", type="password", 
-                                   help="Required for AI responses. Get from https://console.groq.com/")
+st.sidebar.markdown("**Required for AI responses**")
+api_key_input = st.sidebar.text_input("Enter Groq API Key", type="password",
+                                   help="Get from https://console.groq.com/",
+                                   placeholder="gsk_...")
+
 if api_key_input:
     st.session_state["groq_api_key"] = api_key_input
-    st.sidebar.success("API Key saved to session")
+    st.sidebar.success("✅ API Key saved to session")
 elif "groq_api_key" in st.session_state:
-    st.sidebar.info("API Key loaded from session")
+    st.sidebar.info("✅ API Key loaded from session")
 else:
-    st.sidebar.warning("Please enter your Groq API Key to enable AI responses")
+    st.sidebar.error("❌ Please enter your Groq API Key to enable AI responses")
+    st.sidebar.markdown("**Without API key, responses will use basic text matching only**")
 
 st.markdown("Drag and drop files onto the uploader or click to browse.\n\nSupports PDFs, Excel, email/text files and images.")
 

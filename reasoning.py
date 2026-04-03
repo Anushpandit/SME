@@ -568,9 +568,9 @@ Structured answer format required:
         elif os.getenv('GROQ_API_KEY'):
             print("Groq key source: environment variable")
         else:
-            print("Groq key source: none")
-    except Exception:
-        print("Groq key source: unable to check st context")
+            print("Groq key source: none - will use fallback")
+    except Exception as e:
+        print(f"Groq key source check error: {e}")
 
     # Ultimate debug fallback (code-embedded key; avoid using in production)
     if not groq_api_key:
