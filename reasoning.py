@@ -580,7 +580,7 @@ Structured answer format required:
         try:
             client = groq.Groq(api_key=groq_api_key)
             response = client.chat.completions.create(
-                model="llama3-8b-8192",  # Free model on Groq
+                model="llama-3.1-8b-instant",  # Free model on Groq
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=1000,
                 stream=True  # Enable streaming
@@ -634,7 +634,7 @@ Structured answer format required:
             retry_prompt = prompt + "\n\nLAST RESPONSE WAS FLAGGED INVALID BY CRITIC. REGENERATE WITH STRICT SOURCE SUPPORT ONLY."
             try:
                 response = client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model="llama-3.1-8b-instant",
                     messages=[{"role": "user", "content": retry_prompt}],
                     max_tokens=1000
                 )
