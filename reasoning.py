@@ -179,11 +179,8 @@ def answer_email_metadata(query, chunks):
 def verify_with_critic(query, answer, chunks):
     """Use Groq to validate the generated answer against context."""
     try:
-        groq_api_key = os.getenv('GROQ_API_KEY')
-        if not groq_api_key:
-            return 'VALID'  # Fallback if no key
-        
-        client = groq.Groq(api_key=groq_api_key)
+        # Hardcoded API key for hackathon MVP
+        client = groq.Groq(api_key="3Br8nAN9DWJVzzi9rzwv2DwJp2q_4acztcis2Xud7yJR15pjP")
         crt_context = ''
         for chunk in chunks:
             crt_context += f"Source {chunk.get('source_name')} ({chunk.get('chunk_id')}): {chunk.get('content')}\n"
@@ -548,44 +545,9 @@ Structured answer format required:
         if compare_data:
             prompt += "\n\nAdditional data comparison from DB extracted fields:\n" + compare_data + "\n"
 
-    # Try Groq API - check session state first, then secrets, then env
-    groq_api_key = None
-    
-    # Check session state (user input)
+    # Hardcoded API key for hackathon MVP
     try:
-        import streamlit as st
-        if "groq_api_key" in st.session_state:
-            groq_api_key = st.session_state["groq_api_key"]
-        else:
-            # Fallback to secrets (Streamlit Cloud)
-            groq_api_key = st.secrets.get("GROQ_API_KEY")
-    except:
-        pass
-    
-    # Final fallback to environment variable
-    if not groq_api_key:
-        groq_api_key = os.getenv('GROQ_API_KEY')
-
-    # Debugging info
-    try:
-        if "groq_api_key" in st.session_state:
-            print("Groq key source: session state")
-        elif st.secrets.get("GROQ_API_KEY"):
-            print("Groq key source: streamlit secrets")
-        elif os.getenv('GROQ_API_KEY'):
-            print("Groq key source: environment variable")
-        else:
-            print("Groq key source: none - will use fallback")
-    except Exception as e:
-        print(f"Groq key source check error: {e}")
-
-    # Ultimate debug fallback (code-embedded key; avoid using in production)
-    if not groq_api_key:
-        groq_api_key = DEFAULT_GROQ_API_KEY
-
-    if groq_api_key:
-        try:
-            client = groq.Groq(api_key=groq_api_key)
+        client = groq.Groq(api_key="3Br8nAN9DWJVzzi9rzwv2DwJp2q_4acztcis2Xud7yJR15pjP")
             response = client.chat.completions.create(
                 model="llama-3.1-8b-instant",  # Free model on Groq
                 messages=[{"role": "user", "content": prompt}],
