@@ -559,10 +559,23 @@ Structured answer format required:
     if not groq_api_key:
         groq_api_key = os.getenv('GROQ_API_KEY')
 
+    # Debugging info
+    try:
+        if "groq_api_key" in st.session_state:
+            print("Groq key source: session state")
+        elif st.secrets.get("GROQ_API_KEY"):
+            print("Groq key source: streamlit secrets")
+        elif os.getenv('GROQ_API_KEY'):
+            print("Groq key source: environment variable")
+        else:
+            print("Groq key source: none")
+    except Exception:
+        print("Groq key source: unable to check st context")
+
     # Ultimate debug fallback (code-embedded key; avoid using in production)
     if not groq_api_key:
         groq_api_key = DEFAULT_GROQ_API_KEY
-    
+
     if groq_api_key:
         try:
             client = groq.Groq(api_key=groq_api_key)

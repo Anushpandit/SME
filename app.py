@@ -220,7 +220,7 @@ if prompt := st.chat_input("Ask a question"):
             # show retrieved docs for this query to avoid confusion about stale data
             if chunks:
                 st.info("Retrieved sources: " + ", ".join([f"{c['source_name']}[{c.get('chunk_id','N/A')} ]" for c in chunks]))
-                answer = resolve_conflicts_and_reason(chunks, prompt, stream=True)
+                answer = resolve_conflicts_and_reason(chunks, prompt, stream=False)
 
                 # Display reasoning details if requested
                 if show_reasoning:
@@ -252,9 +252,18 @@ if prompt := st.chat_input("Ask a question"):
     with st.chat_message("assistant"):
         if isinstance(answer, str):
             st.markdown(answer)
+        elif hasattr(answer, "__iter__"):
+            # Fallback generator streaming implementation
+            output = st.empty()
+            display_text = ""
+            for chunk in answer:
+                display_text += chunk
+                output.markdown(display_text)
         else:
-            # Streaming response
-            st.write_stream(answer)
+            try:
+                st.markdown(str(answer))
+            except Exception:
+                st.write(answer)
     
     # Generate Support Ticket button - only show after successful response
     if "messages" in st.session_state and len(st.session_state.messages) >= 2:
