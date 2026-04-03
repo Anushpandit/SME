@@ -538,11 +538,22 @@ Structured answer format required:
         if compare_data:
             prompt += "\n\nAdditional data comparison from DB extracted fields:\n" + compare_data + "\n"
 
-    # Try Groq API
+    # Try Groq API - check session state first, then secrets, then env
+    groq_api_key = None
+    
+    # Check session state (user input)
     try:
         import streamlit as st
-        groq_api_key = st.secrets["GROQ_API_KEY"]
+        if "groq_api_key" in st.session_state:
+            groq_api_key = st.session_state["groq_api_key"]
+        else:
+            # Fallback to secrets (Streamlit Cloud)
+            groq_api_key = st.secrets.get("GROQ_API_KEY")
     except:
+        pass
+    
+    # Final fallback to environment variable
+    if not groq_api_key:
         groq_api_key = os.getenv('GROQ_API_KEY')
     
     if groq_api_key:
