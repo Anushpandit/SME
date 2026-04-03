@@ -1,11 +1,13 @@
 import chromadb
 from chromadb.config import Settings
 import hashlib
+import os
 from datetime import datetime
 
 def get_chroma_client():
     """Initialize ChromaDB client."""
-    return chromadb.PersistentClient(path="./chroma_db")
+    db_path = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+    return chromadb.PersistentClient(path=db_path)
 
 def semantic_chunk_text(text, chunk_size=500):
     """Semantic chunking: split by paragraphs, then by size."""
