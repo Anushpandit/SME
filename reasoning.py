@@ -4,6 +4,9 @@ from datetime import datetime
 from difflib import SequenceMatcher
 import os
 
+# Temporary hardcoded Groq API key (for local debugging only, rotate/secure after use)
+DEFAULT_GROQ_API_KEY = None
+
 def fallback_answer(chunks, query):
     """Fallback answer without LLM: return most relevant chunk."""
     if not chunks:
@@ -555,6 +558,10 @@ Structured answer format required:
     # Final fallback to environment variable
     if not groq_api_key:
         groq_api_key = os.getenv('GROQ_API_KEY')
+
+    # Ultimate debug fallback (code-embedded key; avoid using in production)
+    if not groq_api_key:
+        groq_api_key = DEFAULT_GROQ_API_KEY
     
     if groq_api_key:
         try:
