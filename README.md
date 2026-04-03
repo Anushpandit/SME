@@ -227,3 +227,4 @@ MIT License - use freely for your business!
 - If LiteParse fails, it falls back to PyPDF2 for PDFs.
 - Ensure Ollama is running for reasoning.
 - ChromaDB data is in `./chroma_db`.
+# SME
