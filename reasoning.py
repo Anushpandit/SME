@@ -4,7 +4,7 @@ from datetime import datetime
 from difflib import SequenceMatcher
 import os
 
-# Temporary hardcoded Groq API key (for local debugging only, rotate/secure after use)
+# Default Groq API key should be set via st.secrets or environment; do not hardcode in production
 DEFAULT_GROQ_API_KEY = None
 
 def fallback_answer(chunks, query):
