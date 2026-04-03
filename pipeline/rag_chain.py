@@ -10,6 +10,7 @@ load_dotenv()
 
 LLM_MODEL  = os.getenv("LLM_MODEL",  "gpt-4o")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
+GROQ_KEY   = os.getenv("GROQ_API_KEY",   "")
 
 
 # ── Citation prompt ───────────────────────────────────────────────────────────
@@ -56,15 +57,29 @@ def _format_sources(chunks: List[Dict]) -> str:
 
 
 def _call_llm(prompt: str) -> Dict:
-    """Call OpenAI and parse JSON response."""
-    from openai import OpenAI
-    t0  = time.time()
-    rsp = OpenAI().chat.completions.create(
-        model       = LLM_MODEL,
-        messages    = [{"role":"user","content":prompt}],
-        temperature = 0.1,
-        max_tokens  = 1200,
-    )
+    """Call LLM (OpenAI or Groq) and parse JSON response."""
+    t0 = time.time()
+
+    if LLM_MODEL.lower() == "groq":
+        # Use Groq API
+        import groq
+        client = groq.Groq(api_key=GROQ_KEY)
+        rsp = client.chat.completions.create(
+            model       = "llama-3.1-8b-instant",  # Fast free model
+            messages    = [{"role":"user","content":prompt}],
+            temperature = 0.1,
+            max_tokens  = 1200,
+        )
+    else:
+        # Use OpenAI API
+        from openai import OpenAI
+        rsp = OpenAI(api_key=OPENAI_KEY).chat.completions.create(
+            model       = LLM_MODEL,
+            messages    = [{"role":"user","content":prompt}],
+            temperature = 0.1,
+            max_tokens  = 1200,
+        )
+
     raw = rsp.choices[0].message.content.strip()
     # Strip markdown fences if present
     if raw.startswith("```"):
@@ -90,7 +105,7 @@ def _mock_answer(query: str, chunks: List[Dict], conflict: Optional[Dict]) -> Di
     c = chunks[0] if chunks else {}
     return {
         "answer": (
-            "[MOCK — set OPENAI_API_KEY in .env for real answers]\n"
+            "[MOCK — set OPENAI_API_KEY or GROQ_API_KEY in .env for real answers]\n"
             f"Best match from '{c.get('metadata',{}).get('filename','?')}': "
             f"{c.get('content','')[:300]}…"
         ),
@@ -174,7 +189,8 @@ def run_rag(
     )
 
     t0     = time.time()
-    result = _call_llm(prompt) if OPENAI_KEY else _mock_answer(query, chunks, conflict)
+    has_llm_key = OPENAI_KEY or (LLM_MODEL.lower() == "groq" and GROQ_KEY)
+    result = _call_llm(prompt) if has_llm_key else _mock_answer(query, chunks, conflict)
     if "latency_ms" not in result:
         result["latency_ms"] = round((time.time()-t0)*1000, 1)
 

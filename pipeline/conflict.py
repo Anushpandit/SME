@@ -14,6 +14,7 @@ load_dotenv()
 
 SIMILARITY_THRESHOLD = float(os.getenv("CONFLICT_THRESHOLD", "0.85"))
 OPENAI_KEY           = os.getenv("OPENAI_API_KEY", "")
+GROQ_KEY             = os.getenv("GROQ_API_KEY", "")
 LLM_MODEL            = os.getenv("LLM_MODEL", "gpt-4o")
 
 
@@ -26,8 +27,9 @@ def _cosine(a: List[float], b: List[float]) -> float:
 
 
 def _ask_llm_about_conflict(chunk_a: Dict, chunk_b: Dict) -> str:
-    """Ask GPT to describe what the two chunks disagree on."""
-    if not OPENAI_KEY:
+    """Ask LLM to describe what the two chunks disagree on."""
+    has_llm_key = OPENAI_KEY or (LLM_MODEL.lower() == "groq" and GROQ_KEY)
+    if not has_llm_key:
         return (
             f"Possible conflict: '{chunk_a['metadata']['filename']}' "
             f"(dated {chunk_a['metadata'].get('doc_date','?')}) and "
@@ -35,7 +37,7 @@ def _ask_llm_about_conflict(chunk_a: Dict, chunk_b: Dict) -> str:
             f"(dated {chunk_b['metadata'].get('doc_date','?')}) "
             f"cover the same topic with different content."
         )
-    from openai import OpenAI
+
     prompt = f"""Two document passages cover the same topic but may contradict each other.
 
 Passage A — File: {chunk_a['metadata']['filename']}, Date: {chunk_a['metadata'].get('doc_date','unknown')}
@@ -47,13 +49,25 @@ Passage B — File: {chunk_b['metadata']['filename']}, Date: {chunk_b['metadata'
 In one sentence: what specific fact do they disagree on?
 Then in one sentence: which is more recent and should be trusted?
 Reply in plain text only, no JSON."""
+
     try:
-        r = OpenAI().chat.completions.create(
-            model       = LLM_MODEL,
-            messages    = [{"role":"user","content":prompt}],
-            temperature = 0,
-            max_tokens  = 120,
-        )
+        if LLM_MODEL.lower() == "groq":
+            import groq
+            client = groq.Groq(api_key=GROQ_KEY)
+            r = client.chat.completions.create(
+                model       = "llama-3.1-8b-instant",
+                messages    = [{"role":"user","content":prompt}],
+                temperature = 0,
+                max_tokens  = 120,
+            )
+        else:
+            from openai import OpenAI
+            r = OpenAI(api_key=OPENAI_KEY).chat.completions.create(
+                model       = LLM_MODEL,
+                messages    = [{"role":"user","content":prompt}],
+                temperature = 0,
+                max_tokens  = 120,
+            )
         return r.choices[0].message.content.strip()
     except Exception as e:
         return f"Conflict detected (LLM explanation unavailable: {e})"
