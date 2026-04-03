@@ -65,19 +65,38 @@ if st.button("Clear stored data"):
 
 if uploaded_files:
     client = get_chroma_client()
-    st.info("Ingestion running in the background. The app remains responsive.")
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = {executor.submit(process_upload_file, client, f): f for f in uploaded_files}
-        for future in as_completed(futures):
-            uploaded_file = futures[future]
-            try:
-                source_name, ok, msg = future.result()
-                if ok:
-                    st.success(f"{source_name} ingested and stored successfully!")
-                else:
-                    st.error(f"{source_name} ingestion failed: {msg}")
-            except Exception as e:
-                st.error(f"Error processing {uploaded_file.name}: {e}")
+    
+    # Check for duplicate files before processing
+    collection = client.get_collection(name='documents')
+    existing_files = set()
+    try:
+        current = collection.get(include=['metadatas'])
+        metadatas = current.get('metadatas', [])
+        existing_files = set(m.get('source_name', '') for m in metadatas if isinstance(m, dict))
+    except:
+        pass  # Collection might not exist yet
+    
+    # Filter out duplicates
+    files_to_process = [f for f in uploaded_files if f.name not in existing_files]
+    duplicate_files = [f.name for f in uploaded_files if f.name in existing_files]
+    
+    if duplicate_files:
+        st.warning(f"Skipped duplicate files: {', '.join(duplicate_files)}")
+    
+    if files_to_process:
+        st.info("Ingestion running in the background. The app remains responsive.")
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = {executor.submit(process_upload_file, client, f): f for f in files_to_process}
+            for future in as_completed(futures):
+                uploaded_file = futures[future]
+                try:
+                    source_name, ok, msg = future.result()
+                    if ok:
+                        st.success(f"{source_name} ingested and stored successfully!")
+                    else:
+                        st.error(f"{source_name} ingestion failed: {msg}")
+                except Exception as e:
+                    st.error(f"Error processing {uploaded_file.name}: {e}")
 
 # Chat interface
 if "messages" not in st.session_state:
@@ -87,7 +106,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-show_reasoning = st.checkbox("View reasoning details", value=False, help="Show logic steps, conflict analysis, and source scores.")
+show_reasoning = st.checkbox("View Reasoning", value=False, help="Show raw retrieved chunks and their metadata (Source ID and Date).")
 
 if prompt := st.chat_input("Ask a question"):
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -177,7 +196,19 @@ if prompt := st.chat_input("Ask a question"):
             # show retrieved docs for this query to avoid confusion about stale data
             if chunks:
                 st.info("Retrieved sources: " + ", ".join([f"{c['source_name']}[{c.get('chunk_id','N/A')} ]" for c in chunks]))
-                answer = resolve_conflicts_and_reason(chunks, prompt)
+                answer = resolve_conflicts_and_reason(chunks, prompt, stream=True)
+
+                # Display reasoning details if requested
+                if show_reasoning:
+                    with st.expander("Retrieved Chunks and Metadata", expanded=True):
+                        for i, chunk in enumerate(chunks, 1):
+                            st.markdown(f"**Chunk {i}: {chunk['source_name']}**")
+                            st.markdown(f"- **Source ID**: {chunk.get('chunk_id', 'N/A')}")
+                            st.markdown(f"- **Date**: {chunk.get('file_date', 'N/A')}")
+                            st.markdown(f"- **Upload Date**: {chunk['upload_date']}")
+                            st.markdown(f"- **Source Type**: {chunk.get('source_type', 'N/A')}")
+                            st.text_area(f"Content {i}", value=chunk['content'], height=100, disabled=True, key=f"chunk_{i}")
+                            st.markdown("---")
 
                 # Add a recommended action template for SMEs
                 if st.button("Draft written request (email / ticket)"):
@@ -195,44 +226,55 @@ if prompt := st.chat_input("Ask a question"):
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
     with st.chat_message("assistant"):
-        st.markdown(answer)
-
-# Generate Support Ticket
-if st.button("Generate Support Ticket"):
-    if st.session_state.messages:
-        last_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "")
-        last_answer = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "assistant"), "")
-        sources = retrieve_relevant_chunks(last_query)
+        if isinstance(answer, str):
+            st.markdown(answer)
+        else:
+            # Streaming response
+            st.write_stream(answer)
+    
+    # Generate Support Ticket button - only show after successful response
+    if "messages" in st.session_state and len(st.session_state.messages) >= 2:
+        last_user_msg = None
+        last_assistant_msg = None
+        for msg in reversed(st.session_state.messages):
+            if msg["role"] == "assistant" and not last_assistant_msg:
+                last_assistant_msg = msg["content"]
+            elif msg["role"] == "user" and not last_user_msg:
+                last_user_msg = msg["content"]
+            if last_user_msg and last_assistant_msg:
+                break
         
-        ticket = {
-            "ticket": {
-                "query": last_query,
-                "answer": last_answer,
-                "sources": [{"source_name": s["source_name"], "upload_date": s["upload_date"], "content": s["content"]} for s in sources]
-            }
-        }
+        if last_user_msg and last_assistant_msg and not last_assistant_msg.startswith("Error"):
+            if st.button("Generate Support Ticket"):
+                sources = retrieve_relevant_chunks(last_user_msg)
+                
+                ticket = {
+                    "ticket": {
+                        "query": last_user_msg,
+                        "answer": last_assistant_msg,
+                        "sources": [{"source_name": s["source_name"], "upload_date": s["upload_date"], "content": s["content"]} for s in sources]
+                    }
+                }
 
-        # Log support ticket to file
-        with open("support_ticket_log.jsonl", "a", encoding="utf-8") as f:
-            f.write(json.dumps(ticket, ensure_ascii=False) + "\n")
+                # Log support ticket to file
+                with open("support_ticket_log.jsonl", "a", encoding="utf-8") as f:
+                    f.write(json.dumps(ticket, ensure_ascii=False) + "\n")
 
-        st.success("Support ticket saved to support_ticket_log.jsonl")
+                st.success("Support ticket saved to support_ticket_log.jsonl")
 
-        # Show mock CRM form
-        st.subheader("Mock CRM Support Ticket Form")
-        with st.form("crm_form"):
-            st.text_input("Customer Query", value=last_query, disabled=True)
-            st.text_area("AI Response", value=last_answer, height=100, disabled=True)
-            sources_text = "\n".join([f"{s['source_name']} ({s['upload_date']})" for s in sources])
-            st.text_area("Sources", value=sources_text, height=50, disabled=True)
-            st.text_input("Priority", value="Medium")
-            st.text_input("Assignee", value="Support Team")
-            submitted = st.form_submit_button("Submit Ticket")
-            if submitted:
-                st.success("Ticket submitted to CRM!")
-        
-        # Download JSON
-        json_str = json.dumps(ticket, indent=4)
-        st.download_button("Download Ticket JSON", json_str, "support_ticket.json", "application/json")
-    else:
-        st.error("No chat history to generate ticket from.")
+                # Show mock CRM form
+                st.subheader("Mock CRM Support Ticket Form")
+                with st.form("crm_form"):
+                    st.text_input("Customer Query", value=last_user_msg, disabled=True)
+                    st.text_area("AI Response", value=last_assistant_msg, height=100, disabled=True)
+                    sources_text = "\n".join([f"{s['source_name']} ({s['upload_date']})" for s in sources])
+                    st.text_area("Sources", value=sources_text, height=50, disabled=True)
+                    st.text_input("Priority", value="Medium")
+                    st.text_input("Assignee", value="Support Team")
+                    submitted = st.form_submit_button("Submit Ticket")
+                    if submitted:
+                        st.success("Ticket submitted to CRM!")
+                
+                # Download JSON
+                json_str = json.dumps(ticket, indent=4)
+                st.download_button("Download Ticket JSON", json_str, "support_ticket.json", "application/json")

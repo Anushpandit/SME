@@ -428,8 +428,8 @@ def compare_numeric_data(chunks):
     return "\n".join(result_lines)
 
 
-def resolve_conflicts_and_reason(chunks, query):
-    """Use Ollama to reason with explicit conflict detection, fallback to simple answer."""
+def resolve_conflicts_and_reason(chunks, query, stream=False):
+    """Use Groq to reason with explicit conflict detection, fallback to simple answer."""
     # Detect conflicts
     conflicts = detect_conflicts(chunks)
     
@@ -503,8 +503,10 @@ def resolve_conflicts_and_reason(chunks, query):
 
     prompt = f"""
 You are an AI assistant for SMEs. Answer the query based on the provided context.
-Prioritize information from newer sources (more recent upload dates). Use the most authoritative sources when available.
-If there are contradictions, explicitly highlight them using the structured template below.
+STRICT HIERARCHY: Prioritize Formal Policy (Source 1-4) over Email Records (Source 7-11) regardless of date, unless the email is an official amendment.
+REQUIREMENT: Refund requests must be 'submitted in writing'.
+EXCEPTIONS: Highlight exceptions for 'custom products or services'.
+PRODUCT CHECK: If a product is not in the Pricing Table (Widget A, B, or C), state 'Information not found' instead of guessing.
 
 Query: {query}
 
@@ -537,16 +539,51 @@ Structured answer format required:
             prompt += "\n\nAdditional data comparison from DB extracted fields:\n" + compare_data + "\n"
 
     # Try Groq API
-    groq_api_key = os.getenv('GROQ_API_KEY')
+    try:
+        import streamlit as st
+        groq_api_key = st.secrets["GROQ_API_KEY"]
+    except:
+        groq_api_key = os.getenv('GROQ_API_KEY')
+    
     if groq_api_key:
         try:
             client = groq.Groq(api_key=groq_api_key)
             response = client.chat.completions.create(
                 model="llama3-8b-8192",  # Free model on Groq
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=1000
+                max_tokens=1000,
+                stream=True  # Enable streaming
             )
-            response_text = response.choices[0].message.content
+            
+            if stream:
+                # Return generator for streaming
+                def stream_response():
+                    full_response = ""
+                    for chunk in response:
+                        if chunk.choices[0].delta.content:
+                            content = chunk.choices[0].delta.content
+                            full_response += content
+                            yield content
+                    
+                    # After streaming, add critic verdict and snippets
+                    critic_verdict = verify_with_critic(query, full_response, sorted_chunks)
+                    snippets = find_supporting_snippets(query, sorted_chunks, max_snippets=3)
+                    snippet_text = ""
+                    if snippets:
+                        snippet_text = "\n\nSNIPPET VERIFICATION:\n"
+                        for s in snippets:
+                            snippet_text += f"- {s['source_name']}[{s['chunk_id']}]{' (date '+str(s['file_date'])+')' if s.get('file_date') else ''}: {s['snippet']}\n"
+                    
+                    yield f"\n\nCRITIC VERDICT: {critic_verdict}{snippet_text if snippet_text else ''}"
+                
+                return stream_response()
+            else:
+                # Collect full response
+                response_text = ""
+                for chunk in response:
+                    if chunk.choices[0].delta.content:
+                        response_text += chunk.choices[0].delta.content
+            
         except Exception as e:
             print(f"Groq API error: {e}")
             response_text = None
@@ -560,24 +597,25 @@ Structured answer format required:
         reasoning = "\n\nReasoning: Could not reach Groq API. Using nearest content match with heuristic similarity."
         return fallback + reasoning
 
-    critic_verdict = verify_with_critic(query, response_text, sorted_chunks)
-    if critic_verdict and critic_verdict.upper().startswith('INVALID'):
-        retry_prompt = prompt + "\n\nLAST RESPONSE WAS FLAGGED INVALID BY CRITIC. REGENERATE WITH STRICT SOURCE SUPPORT ONLY."
-        try:
-            response = client.chat.completions.create(
-                model="llama3-8b-8192",
-                messages=[{"role": "user", "content": retry_prompt}],
-                max_tokens=1000
-            )
-            response_text = response.choices[0].message.content
-        except Exception:
-            pass
+    if not stream:
+        critic_verdict = verify_with_critic(query, response_text, sorted_chunks)
+        if critic_verdict and critic_verdict.upper().startswith('INVALID'):
+            retry_prompt = prompt + "\n\nLAST RESPONSE WAS FLAGGED INVALID BY CRITIC. REGENERATE WITH STRICT SOURCE SUPPORT ONLY."
+            try:
+                response = client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[{"role": "user", "content": retry_prompt}],
+                    max_tokens=1000
+                )
+                response_text = response.choices[0].message.content
+            except Exception:
+                pass
 
-    snippets = find_supporting_snippets(query, sorted_chunks, max_snippets=3)
-    snippet_text = ""
-    if snippets:
-        snippet_text = "\n\nSNIPPET VERIFICATION:\n"
-        for s in snippets:
-            snippet_text += f"- {s['source_name']}[{s['chunk_id']}]{' (date '+str(s['file_date'])+')' if s.get('file_date') else ''}: {s['snippet']}\n"
+        snippets = find_supporting_snippets(query, sorted_chunks, max_snippets=3)
+        snippet_text = ""
+        if snippets:
+            snippet_text = "\n\nSNIPPET VERIFICATION:\n"
+            for s in snippets:
+                snippet_text += f"- {s['source_name']}[{s['chunk_id']}]{' (date '+str(s['file_date'])+')' if s.get('file_date') else ''}: {s['snippet']}\n"
 
-    return f"{response_text}\n\nCRITIC VERDICT: {critic_verdict}{snippet_text if snippet_text else ''}"
+        return f"{response_text}\n\nCRITIC VERDICT: {critic_verdict}{snippet_text if snippet_text else ''}"
