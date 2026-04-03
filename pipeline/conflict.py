@@ -19,7 +19,11 @@ LLM_MODEL            = os.getenv("LLM_MODEL", "gpt-4o")
 
 
 def _cosine(a: List[float], b: List[float]) -> float:
-    if not a or not b or len(a) == 0 or len(b) == 0: return 0.0
+    # Check for None or empty arrays/lists - avoid ambiguous truth value with numpy arrays
+    if a is None or b is None:
+        return 0.0
+    if len(a) == 0 or len(b) == 0:
+        return 0.0
     dot = sum(x*y for x,y in zip(a,b))
     ma  = sum(x*x for x in a)**0.5
     mb  = sum(x*x for x in b)**0.5
