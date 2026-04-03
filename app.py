@@ -3,6 +3,14 @@ import os
 import json
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not installed, continue normally
+
 from ingestion import ingest_file, infer_source_type, extract_dates_from_text
 from storage import get_chroma_client, store_document
 from retrieval import retrieve_relevant_chunks, retrieve_all_chunks

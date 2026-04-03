@@ -4,6 +4,13 @@ from datetime import datetime
 from difflib import SequenceMatcher
 import os
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not installed, continue with env vars
+
 # Default Groq API key should be set via st.secrets or environment; do not hardcode in production
 DEFAULT_GROQ_API_KEY = None
 
