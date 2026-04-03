@@ -72,7 +72,7 @@ uploaded_files = st.file_uploader("Upload PDFs, Excel, or email/text files", acc
 # Clear all stored data button
 if st.button("Clear stored data"):
     client = get_chroma_client()
-    collection = client.get_collection(name='documents')
+    collection = client.get_or_create_collection(name='documents')
 
     try:
         # Get all IDs in collection and delete by IDs.
@@ -94,7 +94,7 @@ if uploaded_files:
     client = get_chroma_client()
     
     # Check for duplicate files before processing
-    collection = client.get_collection(name='documents')
+    collection = client.get_or_create_collection(name='documents')
     existing_files = set()
     try:
         current = collection.get(include=['metadatas'])
@@ -102,6 +102,10 @@ if uploaded_files:
         existing_files = set(m.get('source_name', '') for m in metadatas if isinstance(m, dict))
     except:
         pass  # Collection might not exist yet
+    
+    # Filter out duplicates
+    files_to_process = [f for f in uploaded_files if f.name not in existing_files]
+    duplicate_files = [f.name for f in uploaded_files if f.name in existing_files]
     
     # Filter out duplicates
     files_to_process = [f for f in uploaded_files if f.name not in existing_files]

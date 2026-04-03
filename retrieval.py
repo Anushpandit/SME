@@ -42,7 +42,7 @@ def _recency_boost(file_date, reference_date=None):
 def retrieve_all_chunks():
     """Retrieve all stored chunks from ChromaDB."""
     client = get_chroma_client()
-    collection = client.get_collection(name="documents")
+    collection = client.get_or_create_collection(name="documents")
     results = collection.get(include=['documents', 'metadatas'])
     chunks = []
     for doc, metadata in zip(results['documents'], results['metadatas']):
@@ -121,7 +121,7 @@ def keyword_search(query, n_results=5, source_types=None, date_after=None, date_
 def retrieve_relevant_chunks(query, n_results=5, source_types=None, date_after=None, date_before=None):
     """Query ChromaDB for top n relevant chunks with hybrid semantic+keyword scoring and time weighting."""
     client = get_chroma_client()
-    collection = client.get_collection(name="documents")
+    collection = client.get_or_create_collection(name="documents")
 
     where = {}
     if source_types:
