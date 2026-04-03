@@ -548,45 +548,45 @@ Structured answer format required:
     # Hardcoded API key for hackathon MVP
     try:
         client = groq.Groq(api_key="3Br8nAN9DWJVzzi9rzwv2DwJp2q_4acztcis2Xud7yJR15pjP")
-            response = client.chat.completions.create(
-                model="llama-3.1-8b-instant",  # Free model on Groq
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=1000,
-                stream=True  # Enable streaming
-            )
-            
-            if stream:
-                # Return generator for streaming
-                def stream_response():
-                    full_response = ""
-                    for chunk in response:
-                        if chunk.choices[0].delta.content:
-                            content = chunk.choices[0].delta.content
-                            full_response += content
-                            yield content
-                    
-                    # After streaming, add critic verdict and snippets
-                    critic_verdict = verify_with_critic(query, full_response, sorted_chunks)
-                    snippets = find_supporting_snippets(query, sorted_chunks, max_snippets=3)
-                    snippet_text = ""
-                    if snippets:
-                        snippet_text = "\n\nSNIPPET VERIFICATION:\n"
-                        for s in snippets:
-                            snippet_text += f"- {s['source_name']}[{s['chunk_id']}]{' (date '+str(s['file_date'])+')' if s.get('file_date') else ''}: {s['snippet']}\n"
-                    
-                    yield f"\n\nCRITIC VERDICT: {critic_verdict}{snippet_text if snippet_text else ''}"
-                
-                return stream_response()
-            else:
-                # Collect full response
-                response_text = ""
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",  # Free model on Groq
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000,
+            stream=True  # Enable streaming
+        )
+        
+        if stream:
+            # Return generator for streaming
+            def stream_response():
+                full_response = ""
                 for chunk in response:
                     if chunk.choices[0].delta.content:
-                        response_text += chunk.choices[0].delta.content
+                        content = chunk.choices[0].delta.content
+                        full_response += content
+                        yield content
+                
+                # After streaming, add critic verdict and snippets
+                critic_verdict = verify_with_critic(query, full_response, sorted_chunks)
+                snippets = find_supporting_snippets(query, sorted_chunks, max_snippets=3)
+                snippet_text = ""
+                if snippets:
+                    snippet_text = "\n\nSNIPPET VERIFICATION:\n"
+                    for s in snippets:
+                        snippet_text += f"- {s['source_name']}[{s['chunk_id']}]{' (date '+str(s['file_date'])+')' if s.get('file_date') else ''}: {s['snippet']}\n"
+                
+                yield f"\n\nCRITIC VERDICT: {critic_verdict}{snippet_text if snippet_text else ''}"
             
-        except Exception as e:
-            print(f"Groq API error: {e}")
-            response_text = None
+            return stream_response()
+        else:
+            # Collect full response
+            response_text = ""
+            for chunk in response:
+                if chunk.choices[0].delta.content:
+                    response_text += chunk.choices[0].delta.content
+        
+    except Exception as e:
+        print(f"Groq API error: {e}")
+        response_text = None
     else:
         response_text = None
 
