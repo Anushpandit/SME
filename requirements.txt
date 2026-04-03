@@ -1,10 +1,38 @@
-streamlit
-chromadb
-groq
-pypdf2
-openpyxl
-markdown
-datetime
-llmlingua
-liteparse
+# Core web framework
+streamlit>=1.28.0
+
+# Vector databases
+chromadb>=0.4.0
+faiss-cpu>=1.7.0
+
+# AI/ML libraries
+openai>=1.0.0
+sentence-transformers>=2.2.0
+cohere>=4.0.0
+groq>=0.4.0
+
+# Document processing
+pypdf2>=3.0.0
+openpyxl>=3.1.0
+python-docx>=1.1.0
+markdown>=3.5.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Text processing and utilities
+langchain-text-splitters>=0.0.1
+llmlingua>=0.2.0
+liteparse>=0.1.0
+
+# Data validation
+pydantic>=2.0.0
+
+# Environment and utilities
+python-dotenv>=1.0.0
 protobuf==3.20.3
+
+# Development and testing
+pytest>=7.0.0
+black>=23.0.0
