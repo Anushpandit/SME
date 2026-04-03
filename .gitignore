@@ -1,1 +1,29 @@
 .env
+
+# Database files
+chroma_db/
+*.sqlite3
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environment
+venv/
+.venv/
+test_venv/
+
+# Runtime data
+crm_tickets/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+support_ticket_log.jsonl
