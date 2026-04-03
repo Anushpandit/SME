@@ -129,7 +129,7 @@ with col_panel:
         with st.container(border=True):
             st.markdown(f"**Customer:** {customer_name}")
             st.markdown(f"**ID:** `{ticket[:8]}...`")
-            st.markdown(f"**Query:** {query[:60] if 'query' in locals() else 'Demo query'}")
+            st.markdown(f"**Query:** {query[:60] if query and isinstance(query, str) else 'Demo query'}")
             st.markdown(f"**Conflict:** {'Yes ⚠️' if result and result.get('conflict_detected') else 'No ✓'}")
             if result and result.get("conflict_explanation"):
                 st.caption(result["conflict_explanation"][:120])
